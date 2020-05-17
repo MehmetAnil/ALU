@@ -24,14 +24,12 @@ module ALU(input logic [3:0] A,B,
                     output logic [3:0] Result,
                     output logic [3:0] ALUFlags
     );
-   
-    parameter S0 = 2'b00;   //ALU Control bitleri
-    parameter S1 = 2'b01;
-    parameter S2 = 2'b10;
-    parameter S3 = 2'b11;
-   
+  
+
     logic [3:0] mux_out;
     logic [3:0] adder_result;
+    
+    logic [3:0] d0; logic [3:0] d1; logic [3:0] d2; logic [3:0] d3;
    
     
     //Ifin içine taþýma iþlemi baþarýsýz, Always Statementýnýn içine Module yazýlamýyormuþ.
@@ -39,68 +37,30 @@ module ALU(input logic [3:0] A,B,
     MUX2 mux(B,~B,ALUControl[0],mux_out);  
     NbitFulladder adder(A,mux_out,ALUControl[0],adder_result,cout); 
     
-   
-   always_comb
+always@*
     begin
-    
-    if(ALUControl==S2)  //AND OPERATOR
-    begin 
-    Result = A&B;
-    if(Result == 4'b0000)   //ZERO KONTROL
-       begin
-       ALUFlags[0]=1; 
-       end
-    end
-    else if(ALUControl==S3) //OR OPERATOR
-    begin
-    Result =A|B;
-    if(Result == 4'b0000)   //ZERO KONTROL
-       begin
-       ALUFlags[0]=1; 
-       end
-    end
-            //BURADAN SONRA ARITMETIK KISIM, FLAG KISMI DEVREYE GIRIYOR 
-   
-    else if(ALUControl==S0)
-    begin
-    Result= adder_result;
-    ALUFlags=4'b0000;
-    ALUFlags[2]= cout & (~ALUControl[1]); //Carry CONTROL
-    ALUFlags[3]= ((~(ALUControl[0] ^ A[0] ^ B[0])) & (Result[0] ^ A[0]) & (~ALUControl[1]));
-    if(Result == 4'b0000 & ~ALUFlags[3])   //ZERO KONTROL
-       begin
-       ALUFlags[0]=1; 
-       end
-    if(Result[3]==1)       //NEGATIVE KONTROL
-        begin
-        ALUFlags[1]=1;
-        end
+    d0=adder_result;
+    d1=adder_result;
+    d2=A&B;
+    d3=A|B;
     end
     
-    //ACIKLAMA: 
-        //Zero flagi için NAND kullanilmadi.
-        //Carry out problem yaþatýyor.
-        //Negatif Result[3] her durumda negatif anlamýna mu geliyor? Negatif de son örnekte çalýþýyor.
-        
-        //Ufak düzeltmelerden sonra lab bitti.
+    MUX4 mux4(d0,d1,d2,d3,ALUControl,Result);
     
-    
-    else if(ALUControl==S1)
+    always@(A,B)
     begin
-    ALUFlags=4'b0000;
-    Result= adder_result;
-    ALUFlags[2]= cout & (~ALUControl[1]); //Carry CONTROL
-    ALUFlags[3]= ((~(ALUControl[0] ^ A[0] ^ B[0])) & (Result[0] ^ A[0]) & (~ALUControl[1]));
-    if(Result == 4'b0000 & ~ALUFlags[3])   //ZERO KONTROL
-       begin
-       ALUFlags[0]=1; 
-       end
-    if(Result[3]==1)       //NEGATIVE KONTROL
-        begin
-        ALUFlags[1]=1;
-        end
-    end  
+    
+    //NEGATIVE
+    ALUFlags[0]<=Result[3];  
+    
+    //ZERO
+    ALUFlags[1]<=(~Result[0] & ~Result[1] & ~Result[2] & ~Result[3]); 
+    
+    //CARRYOUT
+    ALUFlags[2]<=(~ALUControl[1] & cout); 
+    
+    //OVERFLOW
+    ALUFlags[3]<= (((ALUControl[0] ~^ A[3]) ~^ B[3]) & (adder_result[3] ^ A[3]) & (~ALUControl[1]));
    
-   
-   end
+    end
 endmodule
